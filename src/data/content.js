@@ -16,8 +16,8 @@ export const STYLES = [
   },
   {
     id: "comic",
-    name: "Pop comic",
-    description: "Bordure BD épaisse, halftone, étiquette penchée",
+    name: "Fiesta pop",
+    description: "Fond arc-en-ciel, confettis et ballons, gros lettrage fun — le style coloré ados/enfants",
   },
   {
     id: "minimal",
@@ -27,12 +27,12 @@ export const STYLES = [
   {
     id: "grunge",
     name: "Grunge tampon",
-    description: "Fond kraft, bordure pointillée, tampon encreur incliné",
+    description: "Fond sombre, tampon rouge incliné, coins déchirés, look affiche officielle",
   },
   {
     id: "pastel",
-    name: "Pastel doodle",
-    description: "Coins arrondis, petites étoiles dessinées, palette rose pâle",
+    name: "Cocooning pastel",
+    description: "Bandeau-ruban, fond à pois, cadre arrondi — ambiance douce et chaleureuse",
   },
 ];
 
@@ -246,6 +246,21 @@ export const CATEGORIES = [
 
 export function getCategory(id) {
   return CATEGORIES.find((c) => c.id === id);
+}
+
+// Permet au client de choisir "Certificat" ou "Diplôme" indépendamment du titre
+// prédéfini, en remplaçant uniquement le premier mot du titre (Diplôme/Certificat/Brevet)
+// tout en gardant le reste intact (ex: "Certificat Officiel d'Anti-Motivation" devient
+// "Diplôme Officiel d'Anti-Motivation").
+export function applyTitleType(title, type) {
+  const label = type === "diplome" ? "Diplôme" : "Certificat";
+  return title.replace(/^(Diplôme|Certificat|Brevet)/, label);
+}
+
+// Détecte le type affiché par défaut pour un titre donné (utilisé pour préremplir
+// le sélecteur Certificat/Diplôme quand l'utilisateur change de titre).
+export function detectTitleType(title) {
+  return /^Diplôme/.test(title) ? "diplome" : "certificat";
 }
 
 export function getStyle(id) {
