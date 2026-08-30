@@ -17,16 +17,20 @@ import { getStore } from "@netlify/blobs";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const SITE_URL = process.env.SITE_URL || "https://crazycertif.com";
 
-// Enveloppe un SVG A4 dans une page HTML calibrée pour l'impression A4 exacte.
-function buildPrintableHtml(svgMarkup) {
+// Enveloppe un SVG A4 dans une page HTML calibrée pour l'impression A4 exacte,
+// dans la bonne orientation (portrait ou paysage).
+function buildPrintableHtml(svgMarkup, orientation) {
+  const cssSize = orientation === "landscape" ? "A4 landscape" : "A4 portrait";
+  const width = orientation === "landscape" ? "297mm" : "210mm";
+  const height = orientation === "landscape" ? "210mm" : "297mm";
   return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8" />
 <style>
-  @page { size: A4 portrait; margin: 0; }
+  @page { size: ${cssSize}; margin: 0; }
   html, body { margin: 0; padding: 0; }
-  svg { width: 210mm; height: 297mm; display: block; }
+  svg { width: ${width}; height: ${height}; display: block; }
 </style>
 </head>
 <body>${svgMarkup}</body>
@@ -52,13 +56,22 @@ export async function handler(event) {
   }
 
   // 1. Re-vérifier le paiement et que les styles envoyés correspondent bien à ceux achetés.
+  //    Le titre/la phrase restent libres (le client peut les changer par rapport au combo
+  //    initialement affiché sur la page catégorie) — seul le nombre de certificats par
+  //    style acheté fait foi, comme validé dans la conception initiale du parcours.
   let paidStyles;
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionToken);
     if (session.payment_status !== "paid") {
       return { statusCode: 402, body: JSON.stringify({ error: "not_paid" }) };
     }
-    paidStyles = (session.metadata.styles || "").split(",").filter(Boolean);
+    let combos = [];
+    try {
+      combos = JSON.parse(session.metadata.combos || "[]");
+    } catch {
+      combos = [];
+    }
+    paidStyles = combos.map((c) => c.style).filter(Boolean);
   } catch (err) {
     return { statusCode: 404, body: JSON.stringify({ error: "session_not_found" }) };
   }
@@ -72,16 +85,21 @@ export async function handler(event) {
   }
 
   // 2. Régénérer les SVG côté serveur à partir du contenu envoyé (source de vérité = renderTemplate.js).
-  const pages = certificates.map((c) =>
-    buildPrintableHtml(
-      renderCertificate(c.styleId, {
+  const pages = certificates.map((c) => {
+    const orientation = c.orientation === "landscape" ? "landscape" : "portrait";
+    const svg = renderCertificate(
+      c.styleId,
+      {
         title: c.title,
         firstname: c.firstname,
         date: c.date,
         phrase: c.phrase,
-      })
-    )
-  );
+        image: c.image || null,
+      },
+      orientation
+    );
+    return { html: buildPrintableHtml(svg, orientation), orientation };
+  });
 
   // 3. Générer un PDF A4 (une page par certificat) avec Puppeteer + chromium serverless.
   let browser;
@@ -95,12 +113,11 @@ export async function handler(event) {
     const page = await browser.newPage();
     const pdfBuffers = [];
 
-    for (const html of pages) {
+    for (const { html } of pages) {
       await page.setContent(html, { waitUntil: "networkidle0" });
       const pdfBuffer = await page.pdf({
-        format: "A4",
         printBackground: true,
-        margin: { top: 0, bottom: 0, left: 0, right: 0 },
+        preferCSSPageSize: true, // laisse le @page CSS (portrait/paysage) décider du format
       });
       pdfBuffers.push(pdfBuffer);
     }

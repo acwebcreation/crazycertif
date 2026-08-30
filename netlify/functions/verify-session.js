@@ -1,6 +1,8 @@
 // netlify/functions/verify-session.js
 // Vérifie côté serveur qu'une session Stripe est bien payée avant de débloquer
 // la page de personnalisation. Empêche d'accéder à /personalize.html sans payer.
+// Renvoie les combos (style + titre + phrase + catégorie) choisis sur la page
+// catégorie, pour préremplir chaque certificat côté client.
 
 import Stripe from "stripe";
 
@@ -20,11 +22,16 @@ export async function handler(event) {
       return { statusCode: 402, body: JSON.stringify({ error: "not_paid" }) };
     }
 
-    const styles = (session.metadata.styles || "").split(",").filter(Boolean);
+    let combos = [];
+    try {
+      combos = JSON.parse(session.metadata.combos || "[]");
+    } catch {
+      combos = [];
+    }
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ styles }),
+      body: JSON.stringify({ combos }),
     };
   } catch (err) {
     console.error("Stripe verify error", err);
