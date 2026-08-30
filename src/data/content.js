@@ -40,6 +40,8 @@ export const CATEGORIES = [
   {
     id: "flemme",
     name: "Flemme / Anti-motivation",
+    themeColor: "#B9773F",
+    emoji: "😴",
     titles: [
       "Diplôme du Roi de la Flemme",
       "Certificat Officiel d'Anti-Motivation",
@@ -63,6 +65,8 @@ export const CATEGORIES = [
   {
     id: "boulot",
     name: "Boulot / Réunions",
+    themeColor: "#4C6FA5",
+    emoji: "💼",
     titles: [
       "Certificat de Survie en Réunion",
       "Diplôme de Résistance au Boulot",
@@ -86,6 +90,8 @@ export const CATEGORIES = [
   {
     id: "amitie",
     name: "Amitié / Couple",
+    themeColor: "#D4537E",
+    emoji: "🤝",
     titles: [
       "Brevet Officiel de Supportage",
       "Diplôme du Meilleur Pote",
@@ -109,6 +115,8 @@ export const CATEGORIES = [
   {
     id: "fetes",
     name: "Fêtes / Saisonnier",
+    themeColor: "#C9932B",
+    emoji: "🎉",
     titles: [
       "Certificat de Bonnes Résolutions Ratées",
       "Diplôme de Survie à la Rentrée",
@@ -132,6 +140,8 @@ export const CATEGORIES = [
   {
     id: "famille",
     name: "Famille",
+    themeColor: "#5C9B7A",
+    emoji: "❤️",
     titles: [
       "Diplôme du Meilleur Papa",
       "Diplôme de la Meilleure Maman",
@@ -156,6 +166,8 @@ export const CATEGORIES = [
   {
     id: "halloween",
     name: "Halloween",
+    themeColor: "#D9631E",
+    emoji: "🎃",
     titles: [
       "Certificat Officiel de Trouille Assumée",
       "Diplôme du Meilleur Déguisement Raté",
@@ -179,6 +191,8 @@ export const CATEGORIES = [
   {
     id: "noel",
     name: "Noël",
+    themeColor: "#B4302E",
+    emoji: "🎄",
     titles: [
       "Certificat Officiel du Plus Sage de l'Année (Presque)",
       "Diplôme du Meilleur Ouvreur de Cadeaux",
@@ -202,6 +216,8 @@ export const CATEGORIES = [
   {
     id: "nouvel-an",
     name: "Nouvel An",
+    themeColor: "#8858B5",
+    emoji: "🥂",
     titles: [
       "Certificat Officiel de Résolution Prise au Sérieux (5 Minutes)",
       "Diplôme du Dernier Debout à Minuit",
@@ -224,6 +240,8 @@ export const CATEGORIES = [
   {
     id: "anniversaire",
     name: "Anniversaire",
+    themeColor: "#3E9BC2",
+    emoji: "🎂",
     titles: [
       "Diplôme Officiel d'une Année de Plus",
       "Certificat de Sagesse Toute Relative",
@@ -265,6 +283,42 @@ export function detectTitleType(title) {
 
 export function getStyle(id) {
   return STYLES.find((s) => s.id === id);
+}
+
+function gcd(a, b) {
+  return b === 0 ? a : gcd(b, a % b);
+}
+
+// Trouve un pas premier avec `length`, pour que le cycle (i * step) % length
+// parcoure bien toutes les valeurs possibles avant de se répéter, au lieu de
+// ne retomber que sur une poignée d'entre elles (ex: pas=3 avec 9 éléments
+// ne donnerait que 3 valeurs distinctes).
+function coprimeStep(length) {
+  if (length <= 1) return 1;
+  for (let step = 7; step < length + 7; step++) {
+    if (gcd(step, length) === 1) return step;
+  }
+  return 1;
+}
+
+// Génère `count` combinaisons (style + titre + phrase) pour une catégorie donnée,
+// utilisées pour peupler la grille de 20 aperçus déjà remplis sur la page catégorie.
+export function generateCategoryTemplates(categoryId, count = 20) {
+  const category = getCategory(categoryId);
+  if (!category) return [];
+  const styleIds = STYLES.map((s) => s.id);
+  const titleStep = coprimeStep(category.titles.length);
+  const phraseStep = coprimeStep(category.phrases.length);
+  const templates = [];
+  for (let i = 0; i < count; i++) {
+    templates.push({
+      style: styleIds[i % styleIds.length],
+      title: category.titles[(i * titleStep) % category.titles.length],
+      phrase: category.phrases[(i * phraseStep) % category.phrases.length],
+      categoryId,
+    });
+  }
+  return templates;
 }
 
 export const PRICING = {
