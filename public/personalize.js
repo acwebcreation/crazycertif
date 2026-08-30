@@ -1,4 +1,4 @@
-import { CATEGORIES, getCategory } from "../src/data/content.js";
+import { CATEGORIES, getCategory, applyTitleType, detectTitleType } from "../src/data/content.js";
 import { renderCertificate } from "../src/data/renderTemplate.js";
 
 // Après paiement, le client est redirigé ici avec un token de session en query string.
@@ -8,14 +8,20 @@ import { renderCertificate } from "../src/data/renderTemplate.js";
 
 const params = new URLSearchParams(window.location.search);
 const sessionToken = params.get("session");
+const isTestMode = params.get("test") === "1";
+const testStyles = (params.get("styles") || "").split(",").filter(Boolean);
 
 const form = document.getElementById("personalize-form");
 const categorySelect = document.getElementById("category");
 const titleSelect = document.getElementById("title");
+const titleTypeSelect = document.getElementById("titleType");
 const phraseSelect = document.getElementById("phrase");
 const firstnameInput = document.getElementById("firstname");
 const dateInput = document.getElementById("date");
 const emailInput = document.getElementById("email");
+const photoInput = document.getElementById("photo");
+const orientationSelect = document.getElementById("orientation");
+const removePhotoBtn = document.getElementById("remove-photo-btn");
 const formError = document.getElementById("form-error");
 const previewFrame = document.getElementById("preview-frame");
 const progressEl = document.getElementById("progress");
@@ -24,8 +30,11 @@ const downloadBtn = document.getElementById("download-btn");
 
 let purchasedStyles = [];   // ex: ["neon", "parchemin", "comic"]
 let currentIndex = 0;
+let currentPhotoDataUrl = null; // data URL de la photo uploadée pour le certificat courant
 // Sauvegarde locale des choix déjà faits pour chaque certificat du pack, pour permettre "certificat précédent".
 const draftsByIndex = {};
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 Mo
 
 dateInput.value = new Date().toISOString().slice(0, 10);
 
@@ -43,27 +52,35 @@ function populateTitlesAndPhrases(categoryId) {
   phraseSelect.innerHTML = category.phrases
     .map((p) => `<option value="${p}">${p}</option>`)
     .join("");
+  titleTypeSelect.value = detectTitleType(titleSelect.value);
 }
 
 function currentStyleId() {
   return purchasedStyles[currentIndex];
 }
 
+function currentDisplayTitle() {
+  return applyTitleType(titleSelect.value, titleTypeSelect.value);
+}
+
 function updatePreview() {
   const content = {
-    title: titleSelect.value,
+    title: currentDisplayTitle(),
     firstname: firstnameInput.value.trim() || "Votre prénom",
     date: dateInput.value,
     phrase: phraseSelect.value,
+    image: currentPhotoDataUrl,
   };
-  previewFrame.innerHTML = renderCertificate(currentStyleId(), content);
+  previewFrame.classList.toggle("landscape", orientationSelect.value === "landscape");
+  previewFrame.innerHTML = renderCertificate(currentStyleId(), content, orientationSelect.value);
 }
 
 function updateProgress() {
-  progressEl.textContent =
+  const base =
     purchasedStyles.length > 1
       ? `Certificat ${currentIndex + 1} sur ${purchasedStyles.length}`
       : "Votre certificat";
+  progressEl.textContent = isTestMode ? `🧪 Mode test — aucun paiement — ${base}` : base;
   prevBtn.hidden = currentIndex === 0;
   downloadBtn.textContent =
     currentIndex < purchasedStyles.length - 1
@@ -77,14 +94,21 @@ function loadDraftIntoForm(index) {
     categorySelect.value = draft.categoryId;
     populateTitlesAndPhrases(draft.categoryId);
     titleSelect.value = draft.title;
+    titleTypeSelect.value = draft.titleType;
     phraseSelect.value = draft.phrase;
     firstnameInput.value = draft.firstname;
     dateInput.value = draft.date;
+    currentPhotoDataUrl = draft.image || null;
+    orientationSelect.value = draft.orientation || "portrait";
   } else {
     categorySelect.value = CATEGORIES[0].id;
     populateTitlesAndPhrases(CATEGORIES[0].id);
     firstnameInput.value = "";
+    currentPhotoDataUrl = null;
+    orientationSelect.value = "portrait";
   }
+  photoInput.value = "";
+  removePhotoBtn.hidden = !currentPhotoDataUrl;
   updatePreview();
 }
 
@@ -92,9 +116,43 @@ categorySelect.addEventListener("change", () => {
   populateTitlesAndPhrases(categorySelect.value);
   updatePreview();
 });
-[titleSelect, phraseSelect, firstnameInput, dateInput].forEach((el) =>
+titleSelect.addEventListener("change", () => {
+  titleTypeSelect.value = detectTitleType(titleSelect.value);
+  updatePreview();
+});
+[phraseSelect, firstnameInput, dateInput, titleTypeSelect, orientationSelect].forEach((el) =>
   el.addEventListener("input", updatePreview)
 );
+
+photoInput.addEventListener("change", () => {
+  const file = photoInput.files?.[0];
+  formError.hidden = true;
+  if (!file) return;
+  if (file.size > MAX_PHOTO_BYTES) {
+    formError.textContent = "La photo dépasse 5 Mo, choisissez un fichier plus léger.";
+    formError.hidden = false;
+    photoInput.value = "";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    currentPhotoDataUrl = reader.result;
+    removePhotoBtn.hidden = false;
+    updatePreview();
+  };
+  reader.onerror = () => {
+    formError.textContent = "Impossible de lire cette photo, réessayez avec un autre fichier.";
+    formError.hidden = false;
+  };
+  reader.readAsDataURL(file);
+});
+
+removePhotoBtn.addEventListener("click", () => {
+  currentPhotoDataUrl = null;
+  photoInput.value = "";
+  removePhotoBtn.hidden = true;
+  updatePreview();
+});
 
 prevBtn.addEventListener("click", () => {
   if (currentIndex === 0) return;
@@ -122,9 +180,12 @@ form.addEventListener("submit", async (e) => {
   draftsByIndex[currentIndex] = {
     categoryId: categorySelect.value,
     title: titleSelect.value,
+    titleType: titleTypeSelect.value,
     phrase: phraseSelect.value,
     firstname: firstnameInput.value.trim(),
     date: dateInput.value,
+    image: currentPhotoDataUrl,
+    orientation: orientationSelect.value,
   };
 
   const isLast = currentIndex === purchasedStyles.length - 1;
@@ -133,6 +194,13 @@ form.addEventListener("submit", async (e) => {
     currentIndex += 1;
     loadDraftIntoForm(currentIndex);
     updateProgress();
+    return;
+  }
+
+  if (isTestMode) {
+    formError.hidden = true;
+    downloadBtn.textContent = "✓ Parcours test terminé (aucun PDF réel généré)";
+    downloadBtn.disabled = true;
     return;
   }
 
@@ -146,10 +214,18 @@ form.addEventListener("submit", async (e) => {
       body: JSON.stringify({
         sessionToken,
         email: emailInput.value.trim() || null,
-        certificates: purchasedStyles.map((styleId, i) => ({
-          styleId,
-          ...draftsByIndex[i],
-        })),
+        certificates: purchasedStyles.map((styleId, i) => {
+          const draft = draftsByIndex[i];
+          return {
+            styleId,
+            title: applyTitleType(draft.title, draft.titleType),
+            firstname: draft.firstname,
+            date: draft.date,
+            phrase: draft.phrase,
+            image: draft.image || null,
+            orientation: draft.orientation || "portrait",
+          };
+        }),
       }),
     });
     if (!res.ok) throw new Error("generate_failed");
@@ -165,6 +241,16 @@ form.addEventListener("submit", async (e) => {
 
 async function init() {
   populateCategories();
+
+  if (isTestMode) {
+    // Mode test : aucun paiement vérifié. Affiché clairement pour ne jamais
+    // être confondu avec un vrai parcours d'achat.
+    purchasedStyles = testStyles.length > 0 ? testStyles : ["parchemin"];
+    progressEl.textContent = "🧪 Mode test — aucun paiement effectué";
+    loadDraftIntoForm(0);
+    updateProgress();
+    return;
+  }
 
   if (!sessionToken) {
     formError.textContent = "Session de paiement introuvable. Retournez à la page d'accueil.";

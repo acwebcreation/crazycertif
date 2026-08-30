@@ -5,13 +5,47 @@ const grid = document.getElementById("styles-grid");
 const selectionBar = document.getElementById("selection-bar");
 const selectionCount = document.getElementById("selection-count");
 const checkoutBtn = document.getElementById("checkout-btn");
+const testBtn = document.getElementById("test-btn");
 
-// Contenu factice utilisé uniquement pour l'aperçu des vignettes de style.
-const PREVIEW_CONTENT = {
-  title: "Roi de la Flemme",
-  firstname: "Julien",
-  date: new Date().toISOString().slice(0, 10),
-  phrase: "Pour avoir dormi malgré 5 alarmes",
+// Un exemple différent par style, tiré de catégories variées, pour que la
+// grille ne montre jamais le même titre/la même phrase deux fois.
+const PREVIEW_CONTENT_BY_STYLE = {
+  parchemin: {
+    title: "Diplôme du Meilleur Papa",
+    firstname: "Marc",
+    date: new Date().toISOString().slice(0, 10),
+    phrase: "Pour amour inconditionnel et sans limite",
+  },
+  neon: {
+    title: "Certificat de Survie en Réunion",
+    firstname: "Sophie",
+    date: new Date().toISOString().slice(0, 10),
+    phrase: "Pour avoir survécu à une réunion qui aurait pu être un email",
+  },
+  comic: {
+    title: "Diplôme du Roi de la Flemme",
+    firstname: "Julien",
+    date: new Date().toISOString().slice(0, 10),
+    phrase: "Pour avoir dormi malgré 5 alarmes",
+  },
+  minimal: {
+    title: "Diplôme Officiel d'une Année de Plus",
+    firstname: "Camille",
+    date: new Date().toISOString().slice(0, 10),
+    phrase: "Pour une année de plus, pas forcément de sagesse",
+  },
+  grunge: {
+    title: "Brevet Officiel de Supportage",
+    firstname: "Nadia",
+    date: new Date().toISOString().slice(0, 10),
+    phrase: "Pour patience infinie et sans faille",
+  },
+  pastel: {
+    title: "Certificat de Champion du Pull Moche",
+    firstname: "Léo",
+    date: new Date().toISOString().slice(0, 10),
+    phrase: "Pour port du pull le plus moche avec fierté assumée",
+  },
 };
 
 let requiredCount = 1; // 1 (single) ou 3 (pack)
@@ -20,12 +54,13 @@ const selectedStyles = new Set();
 function renderGrid() {
   grid.innerHTML = "";
   for (const style of STYLES) {
+    const previewContent = PREVIEW_CONTENT_BY_STYLE[style.id];
     const card = document.createElement("button");
     card.type = "button";
     card.className = "style-card";
     card.dataset.styleId = style.id;
     card.innerHTML = `
-      <div class="thumb">${renderCertificate(style.id, PREVIEW_CONTENT)}</div>
+      <div class="thumb">${renderCertificate(style.id, previewContent)}</div>
       <div class="meta">
         <h3>${style.name}</h3>
         <p>${style.description}</p>
@@ -68,6 +103,18 @@ document.querySelectorAll("[data-select-count]").forEach((btn) => {
     btn.classList.add("selected");
     updateSelectionBar();
   });
+});
+
+// Mode test : contourne totalement Stripe, pour vérifier le rendu et le parcours
+// de personnalisation sans payer. À retirer ou protéger par mot de passe avant
+// une vraie mise en production publique.
+testBtn.addEventListener("click", () => {
+  const styles =
+    selectedStyles.size > 0
+      ? Array.from(selectedStyles)
+      : STYLES.slice(0, 3).map((s) => s.id); // par défaut : 3 premiers styles
+  const params = new URLSearchParams({ test: "1", styles: styles.join(",") });
+  window.location.href = `/personalize.html?${params.toString()}`;
 });
 
 checkoutBtn.addEventListener("click", async () => {

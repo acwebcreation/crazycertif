@@ -188,6 +188,20 @@ body {
   max-width: 960px;
   margin: 0 auto;
 }
+.selection-bar-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.btn-test {
+  border-style: dashed;
+  color: var(--muted);
+  font-size: 13px;
+}
+.btn-test:hover {
+  color: var(--ink);
+  background: rgba(0,0,0,0.04);
+}
 
 .site-footer {
   border-top: 1px solid var(--line);
@@ -242,6 +256,20 @@ body {
   outline-offset: 1px;
 }
 
+.field-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+.btn-link {
+  border: none;
+  background: none;
+  color: var(--accent-dark);
+  text-decoration: underline;
+  padding: 0;
+  font-size: 12px;
+  align-self: flex-start;
+}
 .form-error {
   color: #a32d2d;
   font-size: 13px;
@@ -267,6 +295,10 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  transition: aspect-ratio .15s;
+}
+.preview-frame.landscape {
+  aspect-ratio: 297 / 210;
 }
 .preview-frame svg {
   width: 100%;

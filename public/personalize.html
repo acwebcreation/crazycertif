@@ -32,6 +32,14 @@
       </div>
 
       <div class="field">
+        <label for="titleType">Type de titre</label>
+        <select id="titleType" name="titleType">
+          <option value="certificat">Certificat</option>
+          <option value="diplome">Diplôme</option>
+        </select>
+      </div>
+
+      <div class="field">
         <label for="firstname">Prénom</label>
         <input type="text" id="firstname" name="firstname" placeholder="Julien" maxlength="30" required />
       </div>
@@ -44,6 +52,21 @@
       <div class="field">
         <label for="phrase">Phrase</label>
         <select id="phrase" name="phrase" required></select>
+      </div>
+
+      <div class="field">
+        <label for="orientation">Orientation</label>
+        <select id="orientation" name="orientation">
+          <option value="portrait">Portrait</option>
+          <option value="landscape">Paysage</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="photo">Photo (optionnel)</label>
+        <input type="file" id="photo" name="photo" accept="image/png, image/jpeg, image/webp" />
+        <p class="field-hint">Ajoutée en médaillon rond sur le certificat. JPG/PNG, 5 Mo max.</p>
+        <button type="button" class="btn btn-link" id="remove-photo-btn" hidden>Retirer la photo</button>
       </div>
 
       <div class="field">
